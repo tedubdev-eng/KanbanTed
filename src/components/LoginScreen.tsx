@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Kanban, Lock, User as UserIcon, LogIn, AlertCircle, Sparkles, Key } from 'lucide-react';
-import { getSupabaseAnonKey, setSupabaseAnonKey, isSupabaseConfigured } from '@/lib/supabase';
+import { Kanban, Lock, User as UserIcon, LogIn, AlertCircle, Key } from 'lucide-react';
+import { setSupabaseAnonKey, isSupabaseConfigured } from '@/lib/supabase';
 
 export function LoginScreen() {
-  const { login, users } = useAuth();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,21 +25,15 @@ export function LoginScreen() {
 
     try {
       setIsLoading(true);
-      const res = await login(username, password);
+      const res = await login(username.trim(), password);
       if (!res.success) {
-        setError(res.error || 'Usuario o contraseña incorrectos. Solo los usuarios registrados pueden ingresar.');
+        setError(res.error || 'Usuario o contraseña incorrectos. Solo usuarios registrados pueden ingresar.');
       }
     } catch {
       setError('Error al conectar. Verifica tus credenciales.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickSelect = (u: typeof users[0]) => {
-    setUsername(u.username);
-    setPassword(u.password || `${u.username.toLowerCase()}123`);
-    setError('');
   };
 
   const handleSaveAnonKey = (e: React.FormEvent) => {
@@ -61,9 +55,9 @@ export function LoginScreen() {
       background: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 60%), #080b11',
     }}>
       <div style={{
-        maxWidth: '440px',
+        maxWidth: '420px',
         width: '100%',
-        background: 'rgba(17, 24, 39, 0.85)',
+        background: 'rgba(17, 24, 39, 0.9)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -100,7 +94,7 @@ export function LoginScreen() {
             KanDay
           </h1>
           <p style={{ fontSize: '0.875rem', color: '#9ca3af', lineHeight: 1.4 }}>
-            Inicia sesión con tu cuenta registrada para acceder al tablero de tareas.
+            Inicia sesión con tu cuenta de usuario registrada.
           </p>
         </div>
 
@@ -136,9 +130,10 @@ export function LoginScreen() {
                 type="text"
                 className="form-input"
                 style={{ width: '100%', paddingLeft: '2.4rem' }}
-                placeholder="Ingresa tu usuario (ej. Ted)"
+                placeholder="Nombre de usuario"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
                 autoFocus
                 required
               />
@@ -159,6 +154,7 @@ export function LoginScreen() {
                 placeholder="Ingresa tu contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -181,52 +177,14 @@ export function LoginScreen() {
             ) : (
               <>
                 <LogIn size={18} />
-                <span>Ingresar al Tablero</span>
+                <span>Iniciar Sesión</span>
               </>
             )}
           </button>
         </form>
 
-        {/* Quick select users of the team */}
-        {users.length > 0 && (
-          <div style={{ marginTop: '1.75rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <span style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginBottom: '0.6rem', textAlign: 'center' }}>
-              <Sparkles size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
-              Selección rápida de miembros registrados:
-            </span>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
-              {users.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  className="action-btn-pill"
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: '0.35rem 0.6rem',
-                    background: username === u.username ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.04)',
-                    borderColor: username === u.username ? '#6366f1' : undefined,
-                  }}
-                  onClick={() => handleQuickSelect(u)}
-                >
-                  <span style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: u.avatar_color || '#6366f1',
-                    display: 'inline-block',
-                  }} />
-                  <span>{u.name.split(' ')[0]}</span>
-                  {u.role === 'admin' && (
-                    <span style={{ fontSize: '0.65rem', color: '#f59e0b', fontWeight: 700 }}>(Admin)</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Optional Supabase Key connection button */}
-        <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
+        {/* Optional Supabase Key connection toggle */}
+        <div style={{ marginTop: '1.75rem', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', textAlign: 'center' }}>
           <button
             type="button"
             onClick={() => setShowKeyConfig(!showKeyConfig)}
@@ -241,7 +199,7 @@ export function LoginScreen() {
             }}
           >
             <Key size={11} />
-            <span>{isSupabaseConfigured() ? 'Supabase conectado' : 'Configurar clave Supabase'}</span>
+            <span>{isSupabaseConfigured() ? 'Supabase conectado' : 'Configurar conexión de Supabase'}</span>
           </button>
 
           {showKeyConfig && (
@@ -250,7 +208,7 @@ export function LoginScreen() {
                 type="password"
                 className="form-input"
                 style={{ fontSize: '0.75rem', padding: '0.45rem' }}
-                placeholder="Pega aquí tu clave anon public de Supabase"
+                placeholder="Pega aquí tu anon public key de Supabase"
                 value={anonKeyInput}
                 onChange={(e) => setAnonKeyInput(e.target.value)}
               />

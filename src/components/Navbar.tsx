@@ -128,32 +128,6 @@ export function Navbar({ onOpenNewTask, activeView, setActiveView }: NavbarProps
                     </span>
                   )}
                 </div>
-                
-                {/* Switcher dropdown */}
-                {users.length > 1 && (
-                  <select 
-                    aria-label="Cambiar usuario"
-                    value={currentUser.id}
-                    onChange={(e) => {
-                      const selected = users.find((u) => u.id === e.target.value);
-                      if (selected) switchUser(selected);
-                    }}
-                    style={{
-                      background: 'transparent',
-                      color: '#9ca3af',
-                      border: 'none',
-                      fontSize: '0.75rem',
-                      cursor: 'pointer',
-                      marginLeft: '0.25rem',
-                    }}
-                  >
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id} style={{ background: '#111827', color: '#fff' }}>
-                        Cambiar a: {u.name} {u.role === 'admin' ? '(Admin)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
 
               <button 
