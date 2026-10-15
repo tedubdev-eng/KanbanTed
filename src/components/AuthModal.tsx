@@ -148,7 +148,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 id="auth-username"
                 type="text"
                 className="form-input"
-                placeholder="Ej. tomas, ana, carlos..."
+                placeholder="Ej. Ted, Quique, Sergio, Franklin, Gabriela..."
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required

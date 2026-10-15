@@ -39,7 +39,7 @@
 ### 6. Autenticación sin Roles Restrictivos
 - Inicio de sesión con Usuario y Contraseña.
 - Pestaña de Registro para nuevos usuarios.
-- **Acceso rápido de prueba**: Botones de 1 clic para alternar entre usuarios predefinidos (*Tomás*, *Ana*, *Carlos*, *Sofía*).
+- **Acceso rápido de prueba**: Botones de 1 clic para alternar entre usuarios predefinidos (*Teddy*, *Enrique*, *Sergio*, *Franklin*, *Gabriela*).
 - Todos los usuarios tienen permisos completos: pueden crear tareas, editar, reasignar, posponer y mover estados.
 
 ---

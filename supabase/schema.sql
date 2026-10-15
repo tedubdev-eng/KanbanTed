@@ -69,22 +69,23 @@ CREATE POLICY "Permitir todas las operaciones en tareas" ON kanban_tasks FOR ALL
 -- ==============================================================================
 INSERT INTO kanban_users (username, name, password, avatar_color)
 VALUES 
-    ('tomas', 'Tomás Machicado', '123456', '#6366f1'),
-    ('ana', 'Ana Morales', '123456', '#ec4899'),
-    ('carlos', 'Carlos Gómez', '123456', '#06b6d4'),
-    ('sofia', 'Sofía Rojas', '123456', '#10b981')
+    ('Ted', 'Teddy Machicado', 'ted123', '#6366f1'),
+    ('Quique', 'Enrique Rojas', 'quique123', '#ec4899'),
+    ('Sergio', 'Sergio Ayala', 'sayala123', '#06b6d4'),
+    ('Franklin', 'Franklin Luque', 'frank123', '#10b981'),
+    ('Gabriela', 'Gabriela Salazar', 'gabriela123', '#d946ef')
 ON CONFLICT (username) DO NOTHING;
 
 -- Tareas de ejemplo con fechas relativas (ayer, hoy, mañana)
 INSERT INTO kanban_tasks (title, description, status, priority, scheduled_date, assigned_to, created_by, completed_at)
 VALUES
     -- Tarea acumulada (programada ayer pero sin finalizar, por lo que se acumula hoy)
-    ('Revisión de requerimientos y arquitectura', 'Verificar diseño de base de datos relacional y flujo de tareas pendientes.', 'asignada', 'alta', CURRENT_DATE - INTERVAL '1 day', 'Tomás Machicado', 'Tomás Machicado', NULL),
+    ('Revisión de requerimientos y arquitectura', 'Verificar diseño de base de datos relacional y flujo de tareas pendientes.', 'asignada', 'alta', CURRENT_DATE - INTERVAL '1 day', 'Teddy Machicado', 'Teddy Machicado', NULL),
     
     -- Tareas para hoy
-    ('Implementar tablero Kanban interactivo', 'Columnas de asignada, en curso y finalizada con capacidad de posponer.', 'en_curso', 'urgente', CURRENT_DATE, 'Tomás Machicado', 'Ana Morales', NULL),
-    ('Configurar conexión con Supabase PostgreSQL', 'Crear tablas e integrar cliente para persistencia de datos relacionales.', 'asignada', 'alta', CURRENT_DATE, 'Carlos Gómez', 'Tomás Machicado', NULL),
-    ('Definir paleta de colores y componentes visuales', 'Estilos modernos con tema oscuro/claro y glassmorphism.', 'finalizada', 'media', CURRENT_DATE, 'Sofía Rojas', 'Tomás Machicado', CURRENT_TIMESTAMP),
+    ('Implementar tablero Kanban interactivo', 'Columnas de asignada, en curso y finalizada con capacidad de posponer.', 'en_curso', 'urgente', CURRENT_DATE, 'Teddy Machicado', 'Enrique Rojas', NULL),
+    ('Configurar conexión con Supabase PostgreSQL', 'Crear tablas e integrar cliente para persistencia de datos relacionales.', 'asignada', 'alta', CURRENT_DATE, 'Sergio Ayala', 'Teddy Machicado', NULL),
+    ('Definir paleta de colores y componentes visuales', 'Estilos modernos con tema oscuro/claro y glassmorphism.', 'finalizada', 'media', CURRENT_DATE, 'Gabriela Salazar', 'Franklin Luque', CURRENT_TIMESTAMP),
 
     -- Tarea agendada para mañana
-    ('Preparar despliegue en Netlify', 'Validar variables de entorno y archivo netlify.toml.', 'asignada', 'media', CURRENT_DATE + INTERVAL '1 day', 'Ana Morales', 'Carlos Gómez', NULL);
+    ('Preparar despliegue en Netlify', 'Validar variables de entorno y archivo netlify.toml.', 'asignada', 'media', CURRENT_DATE + INTERVAL '1 day', 'Franklin Luque', 'Sergio Ayala', NULL);

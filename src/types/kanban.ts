@@ -6,6 +6,7 @@ export interface User {
   id: string;
   username: string;
   name: string;
+  password?: string;
   avatar_color?: string;
   created_at?: string;
 }

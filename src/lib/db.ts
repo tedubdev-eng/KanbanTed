@@ -2,14 +2,15 @@ import { Task, TaskPriority, TaskStatus, User } from '@/types/kanban';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { getTodayString, addDays } from './dateUtils';
 
-const STORAGE_USERS_KEY = 'kanban_users_local';
-const STORAGE_TASKS_KEY = 'kanban_tasks_local';
+const STORAGE_USERS_KEY = 'kanban_users_v2';
+const STORAGE_TASKS_KEY = 'kanban_tasks_v2';
 
 const DEFAULT_USERS: User[] = [
-  { id: 'u1', username: 'tomas', name: 'Tomás Machicado', avatar_color: '#6366f1' },
-  { id: 'u2', username: 'ana', name: 'Ana Morales', avatar_color: '#ec4899' },
-  { id: 'u3', username: 'carlos', name: 'Carlos Gómez', avatar_color: '#06b6d4' },
-  { id: 'u4', username: 'sofia', name: 'Sofía Rojas', avatar_color: '#10b981' },
+  { id: 'u1', username: 'Ted', name: 'Teddy Machicado', avatar_color: '#6366f1', password: 'ted123' },
+  { id: 'u2', username: 'Quique', name: 'Enrique Rojas', avatar_color: '#ec4899', password: 'quique123' },
+  { id: 'u3', username: 'Sergio', name: 'Sergio Ayala', avatar_color: '#06b6d4', password: 'sayala123' },
+  { id: 'u4', username: 'Franklin', name: 'Franklin Luque', avatar_color: '#10b981', password: 'frank123' },
+  { id: 'u5', username: 'Gabriela', name: 'Gabriela Salazar', avatar_color: '#d946ef', password: 'gabriela123' },
 ];
 
 function getDefaultTasks(): Task[] {
@@ -25,8 +26,8 @@ function getDefaultTasks(): Task[] {
       status: 'asignada',
       priority: 'alta',
       scheduled_date: yesterday, // Acumulada de ayer!
-      assigned_to: 'Tomás Machicado',
-      created_by: 'Tomás Machicado',
+      assigned_to: 'Teddy Machicado',
+      created_by: 'Teddy Machicado',
       completed_at: null,
       created_at: new Date(Date.now() - 86400000).toISOString(),
       updated_at: new Date(Date.now() - 86400000).toISOString(),
@@ -38,8 +39,8 @@ function getDefaultTasks(): Task[] {
       status: 'en_curso',
       priority: 'urgente',
       scheduled_date: today,
-      assigned_to: 'Tomás Machicado',
-      created_by: 'Ana Morales',
+      assigned_to: 'Teddy Machicado',
+      created_by: 'Enrique Rojas',
       completed_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -51,8 +52,8 @@ function getDefaultTasks(): Task[] {
       status: 'asignada',
       priority: 'alta',
       scheduled_date: today,
-      assigned_to: 'Carlos Gómez',
-      created_by: 'Tomás Machicado',
+      assigned_to: 'Sergio Ayala',
+      created_by: 'Teddy Machicado',
       completed_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -64,8 +65,8 @@ function getDefaultTasks(): Task[] {
       status: 'finalizada',
       priority: 'media',
       scheduled_date: today,
-      assigned_to: 'Sofía Rojas',
-      created_by: 'Tomás Machicado',
+      assigned_to: 'Gabriela Salazar',
+      created_by: 'Franklin Luque',
       completed_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -77,8 +78,8 @@ function getDefaultTasks(): Task[] {
       status: 'asignada',
       priority: 'media',
       scheduled_date: tomorrow,
-      assigned_to: 'Ana Morales',
-      created_by: 'Carlos Gómez',
+      assigned_to: 'Franklin Luque',
+      created_by: 'Sergio Ayala',
       completed_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -173,9 +174,13 @@ export async function loginUser(username: string, password: string): Promise<Use
   // Fallback / Local mode
   const users = getLocalUsers();
   const found = users.find((u) => u.username.toLowerCase() === normalizedUser);
-  if (found) return found;
+  if (found) {
+    if (found.password && found.password !== password) {
+      return null;
+    }
+    return found;
+  }
 
-  // If simple demo mode and user enters an unknown username, we can automatically register or check 123456
   return null;
 }
 
