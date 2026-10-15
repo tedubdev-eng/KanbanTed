@@ -1,9 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const DEFAULT_SUPABASE_URL = 'https://uznvsbcfheetopffyanw.supabase.co';
-
 export const getSupabaseUrl = (): string => {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 };
 
 export const getSupabaseAnonKey = (): string => {
