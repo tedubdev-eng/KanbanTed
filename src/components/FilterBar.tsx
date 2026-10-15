@@ -18,6 +18,7 @@ interface FilterBarProps {
   selectedPriority: string;
   onPriorityChange: (val: string) => void;
   onResetFilters: () => void;
+  isAdmin?: boolean;
 }
 
 export function FilterBar({
@@ -33,6 +34,7 @@ export function FilterBar({
   selectedPriority,
   onPriorityChange,
   onResetFilters,
+  isAdmin = false,
 }: FilterBarProps) {
   const isToday = selectedDate === today;
   const hasActiveFilters = searchQuery !== '' || selectedAssignee !== 'all' || selectedPriority !== 'all';
@@ -85,20 +87,34 @@ export function FilterBar({
           />
         </div>
 
-        {/* Filter by Assignee */}
-        <select
-          aria-label="Filtrar por usuario asignado"
-          className="filter-select"
-          value={selectedAssignee}
-          onChange={(e) => onAssigneeChange(e.target.value)}
-        >
-          <option value="all">Todos los usuarios</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.name}>
-              Asignado: {u.name}
-            </option>
-          ))}
-        </select>
+        {/* Filter by Assignee (Only for Admin; regular users only view their own tasks) */}
+        {isAdmin ? (
+          <select
+            aria-label="Filtrar por usuario asignado"
+            className="filter-select"
+            value={selectedAssignee}
+            onChange={(e) => onAssigneeChange(e.target.value)}
+          >
+            <option value="all">Todos los miembros</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.name}>
+                Asignado: {u.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span style={{
+            fontSize: '0.78rem',
+            padding: '0.45rem 0.75rem',
+            background: 'rgba(99, 102, 241, 0.12)',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            color: '#c7d2fe',
+            fontWeight: 600,
+          }}>
+            Mostrando: Mis Tareas
+          </span>
+        )}
 
         {/* Filter by Priority */}
         <select

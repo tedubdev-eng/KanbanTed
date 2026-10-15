@@ -1,16 +1,16 @@
 import { Task, TaskPriority, TaskStatus, User } from '@/types/kanban';
-import { supabase, isSupabaseConfigured } from './supabase';
+import { getSupabase } from './supabase';
 import { getTodayString, addDays } from './dateUtils';
 
-const STORAGE_USERS_KEY = 'kanban_users_v2';
-const STORAGE_TASKS_KEY = 'kanban_tasks_v2';
+const STORAGE_USERS_KEY = 'kanban_users_v3';
+const STORAGE_TASKS_KEY = 'kanban_tasks_v3';
 
 const DEFAULT_USERS: User[] = [
-  { id: 'u1', username: 'Ted', name: 'Teddy Machicado', avatar_color: '#6366f1', password: 'ted123' },
-  { id: 'u2', username: 'Quique', name: 'Enrique Rojas', avatar_color: '#ec4899', password: 'quique123' },
-  { id: 'u3', username: 'Sergio', name: 'Sergio Ayala', avatar_color: '#06b6d4', password: 'sayala123' },
-  { id: 'u4', username: 'Franklin', name: 'Franklin Luque', avatar_color: '#10b981', password: 'frank123' },
-  { id: 'u5', username: 'Gabriela', name: 'Gabriela Salazar', avatar_color: '#d946ef', password: 'gabriela123' },
+  { id: 'u1', username: 'Ted', name: 'Teddy Machicado', avatar_color: '#6366f1', password: 'ted123', role: 'admin' },
+  { id: 'u2', username: 'Quique', name: 'Enrique Rojas', avatar_color: '#ec4899', password: 'quique123', role: 'user' },
+  { id: 'u3', username: 'Sergio', name: 'Sergio Ayala', avatar_color: '#06b6d4', password: 'sayala123', role: 'user' },
+  { id: 'u4', username: 'Franklin', name: 'Franklin Luque', avatar_color: '#10b981', password: 'frank123', role: 'user' },
+  { id: 'u5', username: 'Gabriela', name: 'Gabriela Salazar', avatar_color: '#d946ef', password: 'gabriela123', role: 'user' },
 ];
 
 function getDefaultTasks(): Task[] {
@@ -118,7 +118,7 @@ function getLocalTasks(): Task[] {
     }
     return JSON.parse(raw);
   } catch {
-    return getDefaultTasks();
+    return [];
   }
 }
 
@@ -130,19 +130,22 @@ function saveLocalTasks(tasks: Task[]): void {
 // Unified Database API
 
 export async function fetchUsers(): Promise<User[]> {
-  if (isSupabaseConfigured() && supabase) {
+  const client = getSupabase();
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_users')
-        .select('id, username, name, avatar_color, created_at')
+        .select('id, username, name, role, avatar_color, created_at')
         .order('name');
       if (error) {
-        console.warn('Error fetching users from Supabase, using local fallback:', error.message);
+        console.error('Error fetching users from Supabase:', error.message);
         return getLocalUsers();
       }
-      return data || [];
+      if (data && data.length > 0) {
+        return data as User[];
+      }
     } catch (err) {
-      console.warn('Supabase fetchUsers failed:', err);
+      console.error('Supabase fetchUsers failed:', err);
       return getLocalUsers();
     }
   }
@@ -151,23 +154,24 @@ export async function fetchUsers(): Promise<User[]> {
 
 export async function loginUser(username: string, password: string): Promise<User | null> {
   const normalizedUser = username.trim().toLowerCase();
+  const client = getSupabase();
 
-  if (isSupabaseConfigured() && supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_users')
-        .select('id, username, name, avatar_color, created_at')
+        .select('id, username, name, role, avatar_color, created_at')
         .ilike('username', normalizedUser)
         .eq('password', password)
         .maybeSingle();
 
       if (error) {
-        console.warn('Supabase login error, checking local:', error.message);
+        console.error('Supabase login error:', error.message);
       } else if (data) {
         return data as User;
       }
     } catch (err) {
-      console.warn('Supabase loginUser failed:', err);
+      console.error('Supabase loginUser failed:', err);
     }
   }
 
@@ -188,24 +192,26 @@ export async function registerUser(username: string, name: string, password: str
   const normalizedUser = username.trim().toLowerCase();
   const colors = ['#6366f1', '#ec4899', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#3b82f6'];
   const randomColor = colors[Math.floor(Math.random() * colors.length)];
+  const client = getSupabase();
 
-  if (isSupabaseConfigured() && supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_users')
         .insert({
           username: normalizedUser,
           name: name.trim(),
           password: password,
+          role: 'user',
           avatar_color: randomColor,
         })
-        .select('id, username, name, avatar_color, created_at')
+        .select('id, username, name, role, avatar_color, created_at')
         .single();
 
       if (error) throw error;
       return data as User;
     } catch (err) {
-      console.warn('Supabase register error, falling back to local:', err);
+      console.error('Supabase register error:', err);
     }
   }
 
@@ -220,6 +226,7 @@ export async function registerUser(username: string, name: string, password: str
     id: 'u_' + Date.now(),
     username: normalizedUser,
     name: name.trim(),
+    role: 'user',
     avatar_color: randomColor,
     created_at: new Date().toISOString(),
   };
@@ -229,20 +236,23 @@ export async function registerUser(username: string, name: string, password: str
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  if (isSupabaseConfigured() && supabase) {
+  const client = getSupabase();
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_tasks')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn('Error fetching tasks from Supabase, using local fallback:', error.message);
+        console.error('Error fetching tasks from Supabase:', error.message);
         return getLocalTasks();
       }
-      return data || [];
+      if (data) {
+        return data as Task[];
+      }
     } catch (err) {
-      console.warn('Supabase fetchTasks failed:', err);
+      console.error('Supabase fetchTasks failed:', err);
       return getLocalTasks();
     }
   }
@@ -253,10 +263,11 @@ export async function createTask(
   taskData: Omit<Task, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Task> {
   const now = new Date().toISOString();
+  const client = getSupabase();
 
-  if (isSupabaseConfigured() && supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_tasks')
         .insert({
           title: taskData.title.trim(),
@@ -271,10 +282,13 @@ export async function createTask(
         .select()
         .single();
 
-      if (error) throw error;
-      return data as Task;
+      if (error) {
+        console.error('Supabase createTask error:', error.message);
+      } else if (data) {
+        return data as Task;
+      }
     } catch (err) {
-      console.warn('Supabase createTask error, falling back to local:', err);
+      console.error('Supabase createTask exception:', err);
     }
   }
 
@@ -298,10 +312,11 @@ export async function updateTaskStatus(
 ): Promise<Task> {
   const now = new Date().toISOString();
   const completed_at = newStatus === 'finalizada' ? now : null;
+  const client = getSupabase();
 
-  if (isSupabaseConfigured() && supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_tasks')
         .update({
           status: newStatus,
@@ -312,10 +327,13 @@ export async function updateTaskStatus(
         .select()
         .single();
 
-      if (error) throw error;
-      return data as Task;
+      if (error) {
+        console.error('Supabase updateTaskStatus error:', error.message);
+      } else if (data) {
+        return data as Task;
+      }
     } catch (err) {
-      console.warn('Supabase updateTaskStatus error, falling back to local:', err);
+      console.error('Supabase updateTaskStatus exception:', err);
     }
   }
 
@@ -339,10 +357,11 @@ export async function postponeTask(
   newDate: string
 ): Promise<Task> {
   const now = new Date().toISOString();
+  const client = getSupabase();
 
-  if (isSupabaseConfigured() && supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_tasks')
         .update({
           scheduled_date: newDate,
@@ -352,10 +371,13 @@ export async function postponeTask(
         .select()
         .single();
 
-      if (error) throw error;
-      return data as Task;
+      if (error) {
+        console.error('Supabase postponeTask error:', error.message);
+      } else if (data) {
+        return data as Task;
+      }
     } catch (err) {
-      console.warn('Supabase postponeTask error, falling back to local:', err);
+      console.error('Supabase postponeTask exception:', err);
     }
   }
 
@@ -378,10 +400,11 @@ export async function updateTask(
   updates: Partial<Omit<Task, 'id' | 'created_at'>>
 ): Promise<Task> {
   const now = new Date().toISOString();
+  const client = getSupabase();
 
-  if (isSupabaseConfigured() && supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('kanban_tasks')
         .update({
           ...updates,
@@ -391,10 +414,13 @@ export async function updateTask(
         .select()
         .single();
 
-      if (error) throw error;
-      return data as Task;
+      if (error) {
+        console.error('Supabase updateTask error:', error.message);
+      } else if (data) {
+        return data as Task;
+      }
     } catch (err) {
-      console.warn('Supabase updateTask error, falling back to local:', err);
+      console.error('Supabase updateTask exception:', err);
     }
   }
 
@@ -413,17 +439,20 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  if (isSupabaseConfigured() && supabase) {
+  const client = getSupabase();
+
+  if (client) {
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('kanban_tasks')
         .delete()
         .eq('id', taskId);
 
-      if (error) throw error;
-      return;
+      if (error) {
+        console.error('Supabase deleteTask error:', error.message);
+      }
     } catch (err) {
-      console.warn('Supabase deleteTask error, falling back to local:', err);
+      console.error('Supabase deleteTask exception:', err);
     }
   }
 

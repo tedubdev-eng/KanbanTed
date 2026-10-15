@@ -41,11 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setCurrentUser(match || parsed);
           } catch {
             localStorage.removeItem(ACTIVE_USER_STORAGE);
+            setCurrentUser(null);
           }
-        } else if (fetchedUsers.length > 0) {
-          // Default to first user for seamless quickstart experience
-          setCurrentUser(fetchedUsers[0]);
-          localStorage.setItem(ACTIVE_USER_STORAGE, JSON.stringify(fetchedUsers[0]));
+        } else {
+          setCurrentUser(null);
         }
       } catch (err) {
         console.error('Failed to initialize auth:', err);

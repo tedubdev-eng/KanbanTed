@@ -18,19 +18,20 @@ import { FilterBar } from '@/components/FilterBar';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { TaskModal } from '@/components/TaskModal';
 import { PostponeModal } from '@/components/PostponeModal';
-import { AuthModal } from '@/components/AuthModal';
-import { SupabaseBanner, SupabaseInfoModal } from '@/components/SupabaseBanner';
+import { LoginScreen } from '@/components/LoginScreen';
+import { SupervisorDashboard } from '@/components/SupervisorDashboard';
 
 const FALLBACK_DATE = '2026-10-15';
 
 export default function KanbanPage() {
-  const { currentUser, users } = useAuth();
+  const { currentUser, users, isLoading: isAuthLoading } = useAuth();
 
   // State
   const [today, setToday] = useState<string>(FALLBACK_DATE);
   const [selectedDate, setSelectedDate] = useState<string>(FALLBACK_DATE);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'kanban' | 'dashboard'>('kanban');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,9 +45,6 @@ export default function KanbanPage() {
 
   const [isPostponeModalOpen, setIsPostponeModalOpen] = useState(false);
   const [postponingTask, setPostponingTask] = useState<Task | null>(null);
-
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
   // Set real client date upon mounting
   useEffect(() => {
@@ -69,18 +67,35 @@ export default function KanbanPage() {
   }, []);
 
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    if (currentUser) {
+      loadTasks();
+    }
+  }, [currentUser, loadTasks]);
 
   // Compute tasks for the selected date (including Carry-over / Rollover from previous days!)
   const dayAugmentedTasks = useMemo(() => {
     return getTasksForDate(tasks, selectedDate);
   }, [tasks, selectedDate]);
 
-  // Apply search and dropdown filters
+  // Apply role permissions & search/dropdown filters
   const filteredTasks = useMemo(() => {
+    if (!currentUser) return [];
+
     return dayAugmentedTasks.filter((task) => {
-      // Search
+      // Role permission: Regular user ONLY sees their own tasks
+      if (currentUser.role !== 'admin') {
+        const isAssignedToMe =
+          task.assigned_to === currentUser.name ||
+          task.assigned_to === currentUser.username;
+        if (!isAssignedToMe) return false;
+      } else {
+        // Admin / Supervisor can see all, or filter by specific user
+        if (selectedAssignee !== 'all' && task.assigned_to !== selectedAssignee) {
+          return false;
+        }
+      }
+
+      // Search filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = task.title.toLowerCase().includes(q);
@@ -89,23 +104,18 @@ export default function KanbanPage() {
         if (!matchesTitle && !matchesDesc && !matchesAssignee) return false;
       }
 
-      // Assignee
-      if (selectedAssignee !== 'all' && task.assigned_to !== selectedAssignee) {
-        return false;
-      }
-
-      // Priority
+      // Priority filter
       if (selectedPriority !== 'all' && task.priority !== selectedPriority) {
         return false;
       }
 
       return true;
     });
-  }, [dayAugmentedTasks, searchQuery, selectedAssignee, selectedPriority]);
+  }, [dayAugmentedTasks, searchQuery, selectedAssignee, selectedPriority, currentUser]);
 
   const rolledOverCount = useMemo(() => {
-    return dayAugmentedTasks.filter((t) => t.isRolledOver).length;
-  }, [dayAugmentedTasks]);
+    return filteredTasks.filter((t) => t.isRolledOver).length;
+  }, [filteredTasks]);
 
   // Handlers
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
@@ -217,6 +227,28 @@ export default function KanbanPage() {
     setSelectedPriority('all');
   };
 
+  // If not logged in, render the dedicated Login Screen Gatekeeper!
+  if (isAuthLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#9ca3af',
+        fontSize: '0.95rem',
+      }}>
+        Cargando sesión...
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginScreen />;
+  }
+
+  const isAdmin = currentUser.role === 'admin';
+
   return (
     <div className="app-container">
       {/* Top Navbar */}
@@ -226,52 +258,58 @@ export default function KanbanPage() {
           setDefaultNewStatus('asignada');
           setIsTaskModalOpen(true);
         }}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenInfo={() => setIsInfoModalOpen(true)}
+        activeView={activeView}
+        setActiveView={setActiveView}
       />
 
       {/* Main Content */}
       <div className="main-content">
-        {/* Supabase status banner */}
-        <SupabaseBanner onOpenInfo={() => setIsInfoModalOpen(true)} />
+        {/* Supervisor Dashboard View */}
+        {isAdmin && activeView === 'dashboard' ? (
+          <SupervisorDashboard tasks={tasks} users={users} today={today} />
+        ) : (
+          /* Kanban Board View */
+          <>
+            {/* Weekly strip navigation */}
+            <WeeklyStrip
+              selectedDate={selectedDate}
+              today={today}
+              onSelectDate={setSelectedDate}
+              tasks={tasks}
+            />
 
-        {/* Weekly strip navigation */}
-        <WeeklyStrip
-          selectedDate={selectedDate}
-          today={today}
-          onSelectDate={setSelectedDate}
-          tasks={tasks}
-        />
+            {/* Filter & Date Focus Bar */}
+            <FilterBar
+              selectedDate={selectedDate}
+              today={today}
+              totalTasks={filteredTasks.length}
+              rolledOverCount={rolledOverCount}
+              users={users}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedAssignee={selectedAssignee}
+              onAssigneeChange={setSelectedAssignee}
+              selectedPriority={selectedPriority}
+              onPriorityChange={setSelectedPriority}
+              onResetFilters={handleResetFilters}
+              isAdmin={isAdmin}
+            />
 
-        {/* Filter & Date Focus Bar */}
-        <FilterBar
-          selectedDate={selectedDate}
-          today={today}
-          totalTasks={filteredTasks.length}
-          rolledOverCount={rolledOverCount}
-          users={users}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedAssignee={selectedAssignee}
-          onAssigneeChange={setSelectedAssignee}
-          selectedPriority={selectedPriority}
-          onPriorityChange={setSelectedPriority}
-          onResetFilters={handleResetFilters}
-        />
-
-        {/* 3 Columns Kanban Board */}
-        <KanbanBoard
-          tasks={filteredTasks}
-          selectedDate={selectedDate}
-          today={today}
-          users={users}
-          onStatusChange={handleStatusChange}
-          onPostponeClick={handlePostponeClick}
-          onTakeForToday={handleTakeForToday}
-          onEditClick={handleEditClick}
-          onDeleteClick={handleDeleteClick}
-          onQuickAdd={handleQuickAdd}
-        />
+            {/* 3 Columns Kanban Board */}
+            <KanbanBoard
+              tasks={filteredTasks}
+              selectedDate={selectedDate}
+              today={today}
+              users={users}
+              onStatusChange={handleStatusChange}
+              onPostponeClick={handlePostponeClick}
+              onTakeForToday={handleTakeForToday}
+              onEditClick={handleEditClick}
+              onDeleteClick={handleDeleteClick}
+              onQuickAdd={handleQuickAdd}
+            />
+          </>
+        )}
       </div>
 
       {/* Modals */}
@@ -293,16 +331,6 @@ export default function KanbanPage() {
         task={postponingTask}
         today={today}
         onPostponeConfirm={handlePostponeConfirm}
-      />
-
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-      />
-
-      <SupabaseInfoModal
-        isOpen={isInfoModalOpen}
-        onClose={() => setIsInfoModalOpen(false)}
       />
     </div>
   );

@@ -2,49 +2,88 @@
 
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { isSupabaseConfigured } from '@/lib/supabase';
-import { Kanban, Plus, UserCheck, LogOut, Database, LogIn } from 'lucide-react';
+import { Kanban, Plus, LogOut, BarChart3, LayoutDashboard, ShieldCheck } from 'lucide-react';
 
 interface NavbarProps {
   onOpenNewTask: () => void;
-  onOpenAuth: () => void;
-  onOpenInfo: () => void;
+  activeView: 'kanban' | 'dashboard';
+  setActiveView: (view: 'kanban' | 'dashboard') => void;
 }
 
-export function Navbar({ onOpenNewTask, onOpenAuth, onOpenInfo }: NavbarProps) {
+export function Navbar({ onOpenNewTask, activeView, setActiveView }: NavbarProps) {
   const { currentUser, logout, users, switchUser } = useAuth();
-  const isConnected = isSupabaseConfigured();
+  const isAdmin = currentUser?.role === 'admin';
 
   return (
     <header className="navbar">
       <div className="navbar-inner">
         {/* Brand */}
-        <div className="brand">
-          <div className="brand-icon">
-            <Kanban size={22} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <div className="brand">
+            <div className="brand-icon">
+              <Kanban size={22} />
+            </div>
+            <div>
+              <div className="brand-title">KanDay</div>
+              <div className="brand-subtitle">Tablero Diario con Seguimiento Semanal</div>
+            </div>
           </div>
-          <div>
-            <div className="brand-title">KanDay</div>
-            <div className="brand-subtitle">Tablero Diario con Seguimiento Semanal</div>
-          </div>
+
+          {/* Supervisor View Toggle (Only visible for admin role) */}
+          {isAdmin && (
+            <div style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--card-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '2px',
+              gap: '2px',
+            }}>
+              <button
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.4rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: activeView === 'kanban' ? '#fff' : 'var(--text-muted)',
+                  background: activeView === 'kanban' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                  border: activeView === 'kanban' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+                }}
+                onClick={() => setActiveView('kanban')}
+              >
+                <Kanban size={14} />
+                <span>Tablero Kanban</span>
+              </button>
+
+              <button
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.4rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: activeView === 'dashboard' ? '#fff' : 'var(--text-muted)',
+                  background: activeView === 'dashboard' ? 'rgba(6, 182, 212, 0.25)' : 'transparent',
+                  border: activeView === 'dashboard' ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+                }}
+                onClick={() => setActiveView('dashboard')}
+              >
+                <BarChart3 size={14} />
+                <span>Dashboard Supervisor</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
         <div className="nav-actions">
-          {/* DB Indicator */}
-          <button 
-            type="button" 
-            className="btn-secondary" 
-            onClick={onOpenInfo}
-            title={isConnected ? 'Conectado a PostgreSQL en Supabase' : 'Modo local activo. Click para ver configuración de Supabase'}
-            style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem' }}
-          >
-            <Database size={15} color={isConnected ? '#34d399' : '#fbbf24'} />
-            <span style={{ color: isConnected ? '#34d399' : '#fbbf24', fontWeight: 600 }}>
-              {isConnected ? 'PostgreSQL Supabase' : 'Modo Local / Demo'}
-            </span>
-          </button>
-
           {/* New Task Button */}
           <button 
             type="button" 
@@ -56,8 +95,8 @@ export function Navbar({ onOpenNewTask, onOpenAuth, onOpenInfo }: NavbarProps) {
             <span>Nueva Tarea</span>
           </button>
 
-          {/* User Profile / Auth */}
-          {currentUser ? (
+          {/* User Profile */}
+          {currentUser && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div 
                 className="user-badge" 
@@ -69,7 +108,26 @@ export function Navbar({ onOpenNewTask, onOpenAuth, onOpenInfo }: NavbarProps) {
                 >
                   {currentUser.name.charAt(0).toUpperCase()}
                 </div>
-                <span style={{ fontWeight: 600, color: '#e5e7eb' }}>{currentUser.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontWeight: 600, color: '#e5e7eb' }}>{currentUser.name}</span>
+                  {currentUser.role === 'admin' && (
+                    <span style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      padding: '0.1rem 0.4rem',
+                      borderRadius: 'var(--radius-full)',
+                      background: 'rgba(245, 158, 11, 0.2)',
+                      color: '#fbbf24',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '2px',
+                    }}>
+                      <ShieldCheck size={10} />
+                      Admin
+                    </span>
+                  )}
+                </div>
                 
                 {/* Switcher dropdown */}
                 {users.length > 1 && (
@@ -91,7 +149,7 @@ export function Navbar({ onOpenNewTask, onOpenAuth, onOpenInfo }: NavbarProps) {
                   >
                     {users.map((u) => (
                       <option key={u.id} value={u.id} style={{ background: '#111827', color: '#fff' }}>
-                        Cambiar a: {u.name}
+                        Cambiar a: {u.name} {u.role === 'admin' ? '(Admin)' : ''}
                       </option>
                     ))}
                   </select>
@@ -107,15 +165,6 @@ export function Navbar({ onOpenNewTask, onOpenAuth, onOpenInfo }: NavbarProps) {
                 <LogOut size={16} />
               </button>
             </div>
-          ) : (
-            <button 
-              type="button" 
-              className="btn-secondary" 
-              onClick={onOpenAuth}
-            >
-              <LogIn size={16} />
-              <span>Iniciar Sesión</span>
-            </button>
           )}
         </div>
       </div>

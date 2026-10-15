@@ -2,11 +2,14 @@ export type TaskStatus = 'asignada' | 'en_curso' | 'finalizada';
 
 export type TaskPriority = 'baja' | 'media' | 'alta' | 'urgente';
 
+export type UserRole = 'admin' | 'user';
+
 export interface User {
   id: string;
   username: string;
   name: string;
   password?: string;
+  role: UserRole;
   avatar_color?: string;
   created_at?: string;
 }

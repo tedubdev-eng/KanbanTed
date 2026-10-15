@@ -3,15 +3,19 @@
 -- Para Supabase
 -- ==============================================================================
 
--- 1. Tabla de Usuarios (Autenticación sin roles restrictivos)
+-- 1. Tabla de Usuarios (Autenticación con roles: admin y user)
 CREATE TABLE IF NOT EXISTS kanban_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
     avatar_color TEXT DEFAULT '#6366f1',
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Si la tabla ya existía, asegurar la columna role
+ALTER TABLE kanban_users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
 
 -- 2. Tabla de Tareas Kanban
 CREATE TABLE IF NOT EXISTS kanban_tasks (
@@ -67,14 +71,15 @@ CREATE POLICY "Permitir todas las operaciones en tareas" ON kanban_tasks FOR ALL
 -- ==============================================================================
 -- Datos de prueba iniciales (Semilla de usuarios y tareas)
 -- ==============================================================================
-INSERT INTO kanban_users (username, name, password, avatar_color)
+INSERT INTO kanban_users (username, name, password, role, avatar_color)
 VALUES 
-    ('Ted', 'Teddy Machicado', 'ted123', '#6366f1'),
-    ('Quique', 'Enrique Rojas', 'quique123', '#ec4899'),
-    ('Sergio', 'Sergio Ayala', 'sayala123', '#06b6d4'),
-    ('Franklin', 'Franklin Luque', 'frank123', '#10b981'),
-    ('Gabriela', 'Gabriela Salazar', 'gabriela123', '#d946ef')
-ON CONFLICT (username) DO NOTHING;
+    ('Ted', 'Teddy Machicado', 'ted123', 'admin', '#6366f1'),
+    ('Quique', 'Enrique Rojas', 'quique123', 'user', '#ec4899'),
+    ('Sergio', 'Sergio Ayala', 'sayala123', 'user', '#06b6d4'),
+    ('Franklin', 'Franklin Luque', 'frank123', 'user', '#10b981'),
+    ('Gabriela', 'Gabriela Salazar', 'gabriela123', 'user', '#d946ef')
+ON CONFLICT (username) DO UPDATE 
+SET role = EXCLUDED.role, password = EXCLUDED.password, name = EXCLUDED.name;
 
 -- Tareas de ejemplo con fechas relativas (ayer, hoy, mañana)
 INSERT INTO kanban_tasks (title, description, status, priority, scheduled_date, assigned_to, created_by, completed_at)
