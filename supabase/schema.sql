@@ -53,20 +53,29 @@ BEFORE UPDATE ON kanban_tasks
 FOR EACH ROW
 EXECUTE FUNCTION update_kanban_tasks_modtime();
 
--- ==============================================================================
--- Políticas de Seguridad (RLS) - Acceso abierto sin roles
--- ==============================================================================
-ALTER TABLE kanban_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE kanban_tasks ENABLE ROW LEVEL SECURITY;
+-- Asegurar permisos completos tanto con RLS desactivado como activado
+ALTER TABLE kanban_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE kanban_tasks DISABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Permitir lectura de usuarios" ON kanban_users;
-CREATE POLICY "Permitir lectura de usuarios" ON kanban_users FOR SELECT USING (true);
+GRANT ALL ON kanban_users TO anon, authenticated, service_role;
+GRANT ALL ON kanban_tasks TO anon, authenticated, service_role;
 
-DROP POLICY IF EXISTS "Permitir registro de usuarios" ON kanban_users;
-CREATE POLICY "Permitir registro de usuarios" ON kanban_users FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Permiso total usuarios" ON kanban_users;
+CREATE POLICY "Permiso total usuarios" ON kanban_users FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Permitir todas las operaciones en tareas" ON kanban_tasks;
-CREATE POLICY "Permitir todas las operaciones en tareas" ON kanban_tasks FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Permiso total tareas" ON kanban_tasks;
+CREATE POLICY "Permiso total tareas" ON kanban_tasks FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- Habilitar replicación en tiempo real para sincronización instantánea entre dispositivos
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'kanban_tasks'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE kanban_tasks;
+  END IF;
+END $$;
 
 -- ==============================================================================
 -- Datos de prueba iniciales (Semilla de usuarios y tareas)

@@ -246,14 +246,14 @@ export async function fetchTasks(): Promise<Task[]> {
 
       if (error) {
         console.error('Error fetching tasks from Supabase:', error.message);
-        return getLocalTasks();
+        throw new Error(`Error al consultar tareas en Supabase: ${error.message}`);
       }
       if (data) {
         return data as Task[];
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Supabase fetchTasks failed:', err);
-      return getLocalTasks();
+      throw err;
     }
   }
   return getLocalTasks();
@@ -266,33 +266,31 @@ export async function createTask(
   const client = getSupabase();
 
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('kanban_tasks')
-        .insert({
-          title: taskData.title.trim(),
-          description: taskData.description || '',
-          status: taskData.status,
-          priority: taskData.priority,
-          scheduled_date: taskData.scheduled_date,
-          assigned_to: taskData.assigned_to,
-          created_by: taskData.created_by,
-          completed_at: taskData.status === 'finalizada' ? now : null,
-        })
-        .select()
-        .single();
+    const { data, error } = await client
+      .from('kanban_tasks')
+      .insert({
+        title: taskData.title.trim(),
+        description: taskData.description || '',
+        status: taskData.status,
+        priority: taskData.priority,
+        scheduled_date: taskData.scheduled_date,
+        assigned_to: taskData.assigned_to,
+        created_by: taskData.created_by,
+        completed_at: taskData.status === 'finalizada' ? now : null,
+      })
+      .select()
+      .single();
 
-      if (error) {
-        console.error('Supabase createTask error:', error.message);
-      } else if (data) {
-        return data as Task;
-      }
-    } catch (err) {
-      console.error('Supabase createTask exception:', err);
+    if (error) {
+      console.error('Supabase createTask error:', error.message);
+      throw new Error(`Error al guardar tarea en Supabase: ${error.message}`);
+    }
+    if (data) {
+      return data as Task;
     }
   }
 
-  // Local fallback
+  // Local fallback if no client
   const tasks = getLocalTasks();
   const newTask: Task = {
     ...taskData,
@@ -315,25 +313,23 @@ export async function updateTaskStatus(
   const client = getSupabase();
 
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('kanban_tasks')
-        .update({
-          status: newStatus,
-          completed_at: completed_at,
-          updated_at: now,
-        })
-        .eq('id', taskId)
-        .select()
-        .single();
+    const { data, error } = await client
+      .from('kanban_tasks')
+      .update({
+        status: newStatus,
+        completed_at: completed_at,
+        updated_at: now,
+      })
+      .eq('id', taskId)
+      .select()
+      .single();
 
-      if (error) {
-        console.error('Supabase updateTaskStatus error:', error.message);
-      } else if (data) {
-        return data as Task;
-      }
-    } catch (err) {
-      console.error('Supabase updateTaskStatus exception:', err);
+    if (error) {
+      console.error('Supabase updateTaskStatus error:', error.message);
+      throw new Error(`Error al actualizar estado en Supabase: ${error.message}`);
+    }
+    if (data) {
+      return data as Task;
     }
   }
 
@@ -360,24 +356,22 @@ export async function postponeTask(
   const client = getSupabase();
 
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('kanban_tasks')
-        .update({
-          scheduled_date: newDate,
-          updated_at: now,
-        })
-        .eq('id', taskId)
-        .select()
-        .single();
+    const { data, error } = await client
+      .from('kanban_tasks')
+      .update({
+        scheduled_date: newDate,
+        updated_at: now,
+      })
+      .eq('id', taskId)
+      .select()
+      .single();
 
-      if (error) {
-        console.error('Supabase postponeTask error:', error.message);
-      } else if (data) {
-        return data as Task;
-      }
-    } catch (err) {
-      console.error('Supabase postponeTask exception:', err);
+    if (error) {
+      console.error('Supabase postponeTask error:', error.message);
+      throw new Error(`Error al posponer tarea en Supabase: ${error.message}`);
+    }
+    if (data) {
+      return data as Task;
     }
   }
 
@@ -403,24 +397,22 @@ export async function updateTask(
   const client = getSupabase();
 
   if (client) {
-    try {
-      const { data, error } = await client
-        .from('kanban_tasks')
-        .update({
-          ...updates,
-          updated_at: now,
-        })
-        .eq('id', taskId)
-        .select()
-        .single();
+    const { data, error } = await client
+      .from('kanban_tasks')
+      .update({
+        ...updates,
+        updated_at: now,
+      })
+      .eq('id', taskId)
+      .select()
+      .single();
 
-      if (error) {
-        console.error('Supabase updateTask error:', error.message);
-      } else if (data) {
-        return data as Task;
-      }
-    } catch (err) {
-      console.error('Supabase updateTask exception:', err);
+    if (error) {
+      console.error('Supabase updateTask error:', error.message);
+      throw new Error(`Error al actualizar tarea en Supabase: ${error.message}`);
+    }
+    if (data) {
+      return data as Task;
     }
   }
 
@@ -442,18 +434,16 @@ export async function deleteTask(taskId: string): Promise<void> {
   const client = getSupabase();
 
   if (client) {
-    try {
-      const { error } = await client
-        .from('kanban_tasks')
-        .delete()
-        .eq('id', taskId);
+    const { error } = await client
+      .from('kanban_tasks')
+      .delete()
+      .eq('id', taskId);
 
-      if (error) {
-        console.error('Supabase deleteTask error:', error.message);
-      }
-    } catch (err) {
-      console.error('Supabase deleteTask exception:', err);
+    if (error) {
+      console.error('Supabase deleteTask error:', error.message);
+      throw new Error(`Error al eliminar tarea en Supabase: ${error.message}`);
     }
+    return;
   }
 
   // Local fallback

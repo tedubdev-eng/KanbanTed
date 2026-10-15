@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export const getSupabaseUrl = (): string => {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uznvsbcfheetopffyanw.supabase.co';
 };
 
 export const getSupabaseAnonKey = (): string => {

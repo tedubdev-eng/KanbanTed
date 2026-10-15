@@ -11,6 +11,7 @@ import {
   updateTask, 
   deleteTask 
 } from '@/lib/db';
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getTodayString, getTasksForDate } from '@/lib/dateUtils';
 import { Navbar } from '@/components/Navbar';
 import { WeeklyStrip } from '@/components/WeeklyStrip';
@@ -20,6 +21,7 @@ import { TaskModal } from '@/components/TaskModal';
 import { PostponeModal } from '@/components/PostponeModal';
 import { LoginScreen } from '@/components/LoginScreen';
 import { SupervisorDashboard } from '@/components/SupervisorDashboard';
+import { Cloud, CloudOff, AlertCircle } from 'lucide-react';
 
 const FALLBACK_DATE = '2026-10-15';
 
@@ -32,6 +34,7 @@ export default function KanbanPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeView, setActiveView] = useState<'kanban' | 'dashboard'>('kanban');
+  const [dbError, setDbError] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,8 +62,11 @@ export default function KanbanPage() {
       setIsLoading(true);
       const data = await fetchTasks();
       setTasks(data);
-    } catch (err) {
+      setDbError(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con la base de datos';
       console.error('Failed to load tasks:', err);
+      setDbError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +75,32 @@ export default function KanbanPage() {
   useEffect(() => {
     if (currentUser) {
       loadTasks();
+    }
+  }, [currentUser, loadTasks]);
+
+  // Realtime subscription: update tasks across all devices automatically
+  useEffect(() => {
+    if (!currentUser) return;
+    const client = getSupabase();
+    if (!client) return;
+
+    try {
+      const channel = client
+        .channel('realtime_kanban_tasks')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'kanban_tasks' },
+          () => {
+            loadTasks();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        client.removeChannel(channel);
+      };
+    } catch (err) {
+      console.warn('Realtime subscription not supported or failed:', err);
     }
   }, [currentUser, loadTasks]);
 
@@ -119,7 +151,6 @@ export default function KanbanPage() {
 
   // Handlers
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
-    // Optimistic update
     const prevTasks = [...tasks];
     const now = new Date().toISOString();
     setTasks((current) =>
@@ -137,9 +168,11 @@ export default function KanbanPage() {
 
     try {
       await updateTaskStatus(taskId, newStatus);
-    } catch (err) {
+      setDbError(null);
+    } catch (err: unknown) {
       console.error('Error updating status:', err);
       setTasks(prevTasks); // Rollback
+      setDbError(err instanceof Error ? err.message : 'Error al actualizar estado');
     }
   };
 
@@ -160,9 +193,11 @@ export default function KanbanPage() {
 
     try {
       await postponeTask(taskId, newDate);
-    } catch (err) {
+      setDbError(null);
+    } catch (err: unknown) {
       console.error('Error postponing task:', err);
       setTasks(prevTasks);
+      setDbError(err instanceof Error ? err.message : 'Error al posponer tarea');
     }
   };
 
@@ -190,9 +225,11 @@ export default function KanbanPage() {
 
     try {
       await deleteTask(taskId);
-    } catch (err) {
+      setDbError(null);
+    } catch (err: unknown) {
       console.error('Error deleting task:', err);
       setTasks(prevTasks);
+      setDbError(err instanceof Error ? err.message : 'Error al eliminar tarea');
     }
   };
 
@@ -204,20 +241,26 @@ export default function KanbanPage() {
     scheduled_date: string;
     assigned_to: string;
   }) => {
-    if (editingTask) {
-      // Update
-      const updated = await updateTask(editingTask.id, taskData);
-      setTasks((current) =>
-        current.map((t) => (t.id === editingTask.id ? { ...t, ...updated } : t))
-      );
-    } else {
-      // Create
-      const created = await createTask({
-        ...taskData,
-        created_by: currentUser?.name || 'Usuario',
-        completed_at: taskData.status === 'finalizada' ? new Date().toISOString() : null,
-      });
-      setTasks((current) => [created, ...current]);
+    try {
+      if (editingTask) {
+        const updated = await updateTask(editingTask.id, taskData);
+        setTasks((current) =>
+          current.map((t) => (t.id === editingTask.id ? { ...t, ...updated } : t))
+        );
+      } else {
+        const created = await createTask({
+          ...taskData,
+          created_by: currentUser?.name || 'Usuario',
+          completed_at: taskData.status === 'finalizada' ? new Date().toISOString() : null,
+        });
+        setTasks((current) => [created, ...current]);
+      }
+      setDbError(null);
+    } catch (err: unknown) {
+      console.error('Error saving task:', err);
+      const msg = err instanceof Error ? err.message : 'Error al guardar tarea';
+      setDbError(msg);
+      throw err;
     }
   };
 
@@ -248,6 +291,7 @@ export default function KanbanPage() {
   }
 
   const isAdmin = currentUser.role === 'admin';
+  const isCloudConnected = isSupabaseConfigured();
 
   return (
     <div className="app-container">
@@ -264,6 +308,55 @@ export default function KanbanPage() {
 
       {/* Main Content */}
       <div className="main-content">
+        {/* Sync Status Callout if not connected to Cloud DB */}
+        {!isCloudConnected && (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.1)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.65rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.8125rem',
+            color: '#fbbf24',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CloudOff size={16} />
+              <span>
+                <strong>Atención:</strong> La sincronización en la nube no está activa en este dispositivo. Para que tus tareas aparezcan en todos tus dispositivos, asegúrate de haber configurado <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> en Netlify.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Global Database Error Notification */}
+        {dbError && (
+          <div style={{
+            background: 'rgba(244, 63, 94, 0.15)',
+            border: '1px solid rgba(244, 63, 94, 0.35)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.75rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.8125rem',
+            color: '#fb7185',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>{dbError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDbError(null)}
+              style={{ color: '#fb7185', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Supervisor Dashboard View */}
         {isAdmin && activeView === 'dashboard' ? (
           <SupervisorDashboard tasks={tasks} users={users} today={today} />
